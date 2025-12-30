@@ -1,0 +1,52 @@
+name: Deploy and Test
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install SAM CLI
+        uses: aws-actions/setup-sam@v2
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Build SAM Application
+        run: sam build --use-container
+
+      - name: Deploy SAM Application
+        run: |
+          sam deploy \
+            --stack-name coderoad-lab-3 \
+            --resolve-s3 \
+            --capabilities CAPABILITY_IAM \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset
+
+      - name: Install Test Dependencies
+        run: |
+          pip install pytest boto3
+
+      - name: Run Tests
+        run: |
+          export STACK_NAME=coderoad-lab-3
+          python3 -m pytest tests/
